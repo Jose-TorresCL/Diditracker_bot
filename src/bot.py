@@ -95,7 +95,7 @@ class DidiTrackerDB:
         logger.info(f"Viaje registrado para {user_name}: ${tariff} ({distance}km, {duration}min)")
         return per_km, per_hour
 
-    def get_daily_stats(self, user_id: int, date: str = None) -> dict:
+    def get_daily_stats(self, user_id: int, date: Optional[str] = None) -> dict:
         """
         Obtiene estadísticas del día especificado
         
@@ -157,7 +157,7 @@ class DidiTrackerDB:
                 'avg_per_km': avg_per_km or 0
             }
 
-    def delete_daily_trips(self, user_id: int, date: str = None):
+    def delete_daily_trips(self, user_id: int, date: Optional[str] = None):
         """
         Elimina todos los viajes de un día específico
         

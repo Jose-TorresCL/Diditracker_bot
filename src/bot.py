@@ -118,13 +118,21 @@ class DidiTrackerDB:
             ''', (user_id, date))
             
             result = cursor.fetchone()
+            if result is None:
+                return {
+                    'trips_count': 0,
+                    'total_money': 0,
+                    'total_distance': 0,
+                    'avg_per_km': 0
+                }
+            
             trips_count, total_money, total_distance, avg_per_km = result
             
             return {
                 'trips_count': trips_count or 0,
-                'total_money': total_money or 0,
-                'total_distance': total_distance or 0,
-                'avg_per_km': avg_per_km or 0
+                'total_money': float(total_money) if total_money else 0.0,
+                'total_distance': float(total_distance) if total_distance else 0.0,
+                'avg_per_km': float(avg_per_km) if avg_per_km else 0.0
             }
 
     def get_weekly_stats(self, user_id: int) -> dict:
@@ -148,13 +156,21 @@ class DidiTrackerDB:
             ''', (user_id, week_ago))
             
             result = cursor.fetchone()
+            if result is None:
+                return {
+                    'trips_count': 0,
+                    'total_money': 0,
+                    'total_distance': 0,
+                    'avg_per_km': 0
+                }
+            
             trips_count, total_money, total_distance, avg_per_km = result
             
             return {
                 'trips_count': trips_count or 0,
-                'total_money': total_money or 0,
-                'total_distance': total_distance or 0,
-                'avg_per_km': avg_per_km or 0
+                'total_money': float(total_money) if total_money else 0.0,
+                'total_distance': float(total_distance) if total_distance else 0.0,
+                'avg_per_km': float(avg_per_km) if avg_per_km else 0.0
             }
 
     def delete_daily_trips(self, user_id: int, date: Optional[str] = None):
@@ -188,6 +204,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         update: Objeto de actualización de Telegram
         context: Contexto de la aplicación
     """
+    if not update.effective_user or not update.message:
+        logger.warning("Intento de comando /start sin usuario válido")
+        return
+    
     welcome_text = f"""
 *🚗 Mi Didi Tracker Pro 🚗*
 
@@ -215,7 +235,7 @@ Te mostraré tu ganancia por km (meta: ${META_PER_KM}/km) y por hora.
         welcome_text,
         parse_mode='Markdown'
     )
-    logger.info(f"Usuario iniciado: {update.effective_user.username}")
+    logger.info(f"Usuario iniciado: {update.effective_user.username or update.effective_user.first_name}")
 
 
 async def add_trip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -226,6 +246,10 @@ async def add_trip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         update: Objeto de actualización de Telegram
         context: Contexto de la aplicación
     """
+    if not update.effective_user or not update.message:
+        logger.warning("Intento de comando /add sin usuario válido")
+        return
+    
     try:
         if len(context.args) != 3:
             await update.message.reply_text(
@@ -248,7 +272,7 @@ async def add_trip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
         
         user_id = update.effective_user.id
-        user_name = update.effective_user.username or update.effective_user.first_name
+        user_name = update.effective_user.username or update.effective_user.first_name or "Usuario"
         
         per_km, per_hour = db.add_trip(user_id, user_name, tariff, distance, duration)
         
@@ -274,7 +298,8 @@ async def add_trip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             parse_mode='Markdown'
         )
         
-    except ValueError:
+    except ValueError as ve:
+        logger.warning(f"Error de validación en /add: {str(ve)}")
         await update.message.reply_text(
             "❌ Error en los valores ingresados\n\n"
             "Verifica que sean números válidos:\n"
@@ -297,11 +322,15 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         update: Objeto de actualización de Telegram
         context: Contexto de la aplicación
     """
+    if not update.effective_user or not update.message:
+        logger.warning("Intento de comando /stats sin usuario válido")
+        return
+    
     try:
         user_id = update.effective_user.id
         stats_data = db.get_daily_stats(user_id)
         
-        if stats_data['trips_count'] == 0:
+        if not stats_data or stats_data['trips_count'] == 0:
             await update.message.reply_text(
                 "📊 *Estadísticas de Hoy*\n\n"
                 "No hay viajes registrados aún.",
@@ -314,10 +343,10 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         stats_text = f"""
 📊 *Estadísticas de Hoy*
 
-🚗 Viajes: {stats_data['trips_count']}
-💰 Total ganado: ${stats_data['total_money']:,.0f}
-📍 KM totales: {stats_data['total_distance']:.1f} km
-📈 Promedio $/km: ${stats_data['avg_per_km']:.0f} (meta: ${META_PER_KM}/km)
+🚗 Viajes: {int(stats_data['trips_count'])}
+💰 Total ganado: ${float(stats_data['total_money']):,.0f}
+📍 KM totales: {float(stats_data['total_distance']):.1f} km
+📈 Promedio $/km: ${float(stats_data['avg_per_km']):.0f} (meta: ${META_PER_KM}/km)
 
 {status_emoji} {'¡Superaste la meta!' if stats_data['avg_per_km'] >= META_PER_KM else 'Por debajo de la meta'}
 """
@@ -343,11 +372,15 @@ async def week_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         update: Objeto de actualización de Telegram
         context: Contexto de la aplicación
     """
+    if not update.effective_user or not update.message:
+        logger.warning("Intento de comando /week sin usuario válido")
+        return
+    
     try:
         user_id = update.effective_user.id
         stats_data = db.get_weekly_stats(user_id)
         
-        if stats_data['trips_count'] == 0:
+        if not stats_data or stats_data['trips_count'] == 0:
             await update.message.reply_text(
                 "📈 *Estadísticas de la Semana*\n\n"
                 "No hay viajes registrados en los últimos 7 días.",
@@ -360,10 +393,10 @@ async def week_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         stats_text = f"""
 📈 *Estadísticas de la Última Semana*
 
-🚗 Viajes: {stats_data['trips_count']}
-💰 Total ganado: ${stats_data['total_money']:,.0f}
-📍 KM totales: {stats_data['total_distance']:.1f} km
-📊 Promedio $/km: ${stats_data['avg_per_km']:.0f} (meta: ${META_PER_KM}/km)
+🚗 Viajes: {int(stats_data['trips_count'])}
+💰 Total ganado: ${float(stats_data['total_money']):,.0f}
+📍 KM totales: {float(stats_data['total_distance']):.1f} km
+📊 Promedio $/km: ${float(stats_data['avg_per_km']):.0f} (meta: ${META_PER_KM}/km)
 
 {status_emoji} {'¡Excelente desempeño!' if stats_data['avg_per_km'] >= META_PER_KM else 'Busca mejorar tus ganancias'}
 """
@@ -389,6 +422,10 @@ async def reset_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         update: Objeto de actualización de Telegram
         context: Contexto de la aplicación
     """
+    if not update.effective_user or not update.message:
+        logger.warning("Intento de comando /reset sin usuario válido")
+        return
+    
     try:
         user_id = update.effective_user.id
         

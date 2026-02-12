@@ -215,8 +215,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 *📋 Comandos disponibles:*
 
-• `/add TARIFA KM MIN` - Registra un viaje
-  Ejemplo: `/add 5200 14 28`
+• `/add TARIFA MIN KM` - Registra un viaje
+  Ejemplo: `/add 5200 28 14`
 
 • `/stats` - Ver estadísticas de hoy 📊
 
@@ -225,7 +225,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 • `/reset` - Borrar datos de hoy ⚠️
 
 *💡 Cómo funciona:*
-Después de cada viaje, envía `/add TARIFA KM MINUTOS`
+Después de cada viaje, envía `/add TARIFA MINUTOS KM`
 Te mostraré tu ganancia por km (meta: ${META_PER_KM}/km) y por hora.
 
 ¡Comencemos a rastrear tus ganancias! 💰
@@ -240,7 +240,7 @@ Te mostraré tu ganancia por km (meta: ${META_PER_KM}/km) y por hora.
 
 async def add_trip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
-    Comando /add TARIFA KM MIN - Registra un viaje y calcula métricas
+    Comando /add TARIFA MIN KM - Registra un viaje y calcula métricas
     
     Args:
         update: Objeto de actualización de Telegram
@@ -251,18 +251,18 @@ async def add_trip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     
     try:
-        if len(context.args) != 3:
+        if not context.args or len(context.args) != 3:
             await update.message.reply_text(
                 "❌ Formato incorrecto\n\n"
-                "Usa: `/add TARIFA KM MINUTOS`\n"
-                "Ejemplo: `/add 5200 14 28`",
+                "Usa: `/add TARIFA MINUTOS KM`\n"
+                "Ejemplo: `/add 5200 28 14`",
                 parse_mode='Markdown'
             )
             return
         
         tariff = float(context.args[0])
-        distance = float(context.args[1])
-        duration = int(context.args[2])
+        duration = int(context.args[1])
+        distance = float(context.args[2])
         
         if tariff <= 0 or distance <= 0 or duration <= 0:
             await update.message.reply_text(
@@ -303,7 +303,7 @@ async def add_trip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text(
             "❌ Error en los valores ingresados\n\n"
             "Verifica que sean números válidos:\n"
-            "`/add TARIFA KM MINUTOS`",
+            "`/add TARIFA MINUTOS KM`",
             parse_mode='Markdown'
         )
     except Exception as e:
@@ -430,7 +430,7 @@ async def reset_data(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         user_id = update.effective_user.id
         
         # Confirmación de seguridad
-        if len(context.args) == 0 or context.args[0].lower() != 'confirm':
+        if not context.args or context.args[0].lower() != 'confirm':
             await update.message.reply_text(
                 "⚠️ *Confirmación Requerida*\n\n"
                 "Esto borrará todos los viajes de hoy.\n\n"
